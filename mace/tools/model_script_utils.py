@@ -25,6 +25,11 @@ def configure_model(
     # Selecting outputs
     compute_virials = args.loss == "virials"
     compute_stress = args.loss in ("stress", "huber", "universal")
+    # The cosine losses include stress only when explicitly requested via
+    # --compute_stress=True; otherwise they are energy + forces + cosine only.
+    # (--stress_weight has a nonzero CLI default, so it cannot signal intent.)
+    if args.loss in ("cosine", "huber_cosine") and args.compute_stress:
+        compute_stress = True
 
     if compute_virials:
         args.compute_virials = True

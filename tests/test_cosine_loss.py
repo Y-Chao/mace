@@ -121,6 +121,75 @@ def test_huber_cosine_loss_runs_and_zero_weight_drops_cosine(batch):
 
 
 # ---------------------------------------------------------------------------
+# Optional stress term
+# ---------------------------------------------------------------------------
+
+
+def test_stress_term_off_by_default(batch):
+    # stress_weight defaults to 0.0 -> stress prediction is ignored entirely.
+    no_stress = WeightedEnergyForcesCosineLoss(
+        energy_weight=1.0, forces_weight=1.0, cosine_weight=1.0
+    )
+    pred = {
+        "energy": batch.energy,
+        "forces": batch.forces,
+        "stress": batch.stress + 5.0,  # large stress error, must be ignored
+    }
+    # Only the cosine term contributes here (E and F are exact); stress weight 0.
+    assert no_stress(batch, pred).item() == pytest.approx(0.0)
+
+
+def test_stress_term_contributes_when_weighted(batch):
+    loss_fn = WeightedEnergyForcesCosineLoss(
+        energy_weight=1.0, forces_weight=1.0, cosine_weight=0.0, stress_weight=10.0
+    )
+    pred_exact = {
+        "energy": batch.energy,
+        "forces": batch.forces,
+        "stress": batch.stress,
+    }
+    pred_wrong = {
+        "energy": batch.energy,
+        "forces": batch.forces,
+        "stress": batch.stress + 1.0,
+    }
+    assert loss_fn(batch, pred_exact).item() == pytest.approx(0.0)
+    assert loss_fn(batch, pred_wrong).item() > 0.0
+
+
+def test_huber_cosine_stress_term(batch):
+    loss_fn = WeightedHuberEnergyForcesCosineLoss(
+        energy_weight=1.0,
+        forces_weight=1.0,
+        cosine_weight=0.0,
+        stress_weight=10.0,
+        huber_delta=0.01,
+    )
+    pred_exact = {
+        "energy": batch.energy,
+        "forces": batch.forces,
+        "stress": batch.stress,
+    }
+    pred_wrong = {
+        "energy": batch.energy,
+        "forces": batch.forces,
+        "stress": batch.stress + 1.0,
+    }
+    assert loss_fn(batch, pred_exact).item() == pytest.approx(0.0)
+    assert loss_fn(batch, pred_wrong).item() > 0.0
+
+
+def test_get_loss_fn_passes_stress_weight():
+    parser = build_default_arg_parser()
+    args = parser.parse_args(
+        ["--name", "test", "--loss", "cosine", "--stress_weight", "8.0"]
+    )
+    loss_fn = get_loss_fn(args, dipole_only=False, compute_dipole=False)
+    assert isinstance(loss_fn, WeightedEnergyForcesCosineLoss)
+    assert loss_fn.stress_weight.item() == pytest.approx(8.0)
+
+
+# ---------------------------------------------------------------------------
 # Weight value -> loss change
 # ---------------------------------------------------------------------------
 

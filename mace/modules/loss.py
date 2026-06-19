@@ -305,7 +305,13 @@ class WeightedForcesLoss(torch.nn.Module):
 
 
 class WeightedEnergyForcesCosineLoss(torch.nn.Module):
-    def __init__(self, energy_weight=1.0, forces_weight=1.0, cosine_weight=1.0) -> None:
+    def __init__(
+        self,
+        energy_weight=1.0,
+        forces_weight=1.0,
+        cosine_weight=1.0,
+        stress_weight=0.0,
+    ) -> None:
         super().__init__()
         self.register_buffer(
             "energy_weight",
@@ -319,6 +325,10 @@ class WeightedEnergyForcesCosineLoss(torch.nn.Module):
             "cosine_weight",
             torch.tensor(cosine_weight, dtype=torch.get_default_dtype()),
         )
+        self.register_buffer(
+            "stress_weight",
+            torch.tensor(stress_weight, dtype=torch.get_default_dtype()),
+        )
 
     def forward(
         self, ref: Batch, pred: TensorDict, ddp: Optional[bool] = None
@@ -326,17 +336,23 @@ class WeightedEnergyForcesCosineLoss(torch.nn.Module):
         loss_energy = weighted_mean_squared_error_energy(ref, pred, ddp)
         loss_forces = mean_squared_error_forces(ref, pred, ddp)
         loss_cosine = mean_cosine_distance_forces(ref, pred, ddp)
-        return (
+        loss = (
             self.energy_weight * loss_energy
             + self.forces_weight * loss_forces
             + self.cosine_weight * loss_cosine
         )
+        if pred.get("stress") is not None and ref["stress"] is not None:
+            loss = loss + self.stress_weight * weighted_mean_squared_stress(
+                ref, pred, ddp
+            )
+        return loss
 
     def __repr__(self):
         return (
             f"{self.__class__.__name__}(energy_weight={self.energy_weight:.3f}, "
             f"forces_weight={self.forces_weight:.3f}, "
-            f"cosine_weight={self.cosine_weight:.3f})"
+            f"cosine_weight={self.cosine_weight:.3f}, "
+            f"stress_weight={self.stress_weight:.3f})"
         )
 
 
@@ -346,6 +362,7 @@ class WeightedHuberEnergyForcesCosineLoss(torch.nn.Module):
         energy_weight=1.0,
         forces_weight=1.0,
         cosine_weight=1.0,
+        stress_weight=0.0,
         huber_delta=0.01,
     ) -> None:
         super().__init__()
@@ -361,6 +378,10 @@ class WeightedHuberEnergyForcesCosineLoss(torch.nn.Module):
         self.register_buffer(
             "cosine_weight",
             torch.tensor(cosine_weight, dtype=torch.get_default_dtype()),
+        )
+        self.register_buffer(
+            "stress_weight",
+            torch.tensor(stress_weight, dtype=torch.get_default_dtype()),
         )
 
     def forward(
@@ -381,17 +402,26 @@ class WeightedHuberEnergyForcesCosineLoss(torch.nn.Module):
             loss_energy = reduce_loss(loss_energy, ddp)
             loss_forces = reduce_loss(loss_forces, ddp)
         loss_cosine = mean_cosine_distance_forces(ref, pred, ddp)
-        return (
+        loss = (
             self.energy_weight * loss_energy
             + self.forces_weight * loss_forces
             + self.cosine_weight * loss_cosine
         )
+        if pred.get("stress") is not None and ref["stress"] is not None:
+            loss_stress = torch.nn.functional.huber_loss(
+                ref["stress"], pred["stress"], reduction=reduction, delta=self.huber_delta
+            )
+            if ddp:
+                loss_stress = reduce_loss(loss_stress, ddp)
+            loss = loss + self.stress_weight * loss_stress
+        return loss
 
     def __repr__(self):
         return (
             f"{self.__class__.__name__}(energy_weight={self.energy_weight:.3f}, "
             f"forces_weight={self.forces_weight:.3f}, "
-            f"cosine_weight={self.cosine_weight:.3f})"
+            f"cosine_weight={self.cosine_weight:.3f}, "
+            f"stress_weight={self.stress_weight:.3f})"
         )
 
 
