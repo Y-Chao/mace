@@ -39,6 +39,14 @@ def compute_q95(delta: np.ndarray) -> float:
     return np.percentile(np.abs(delta), q=95)
 
 
+def compute_cosine_similarity_forces(pred: np.ndarray, ref: np.ndarray) -> float:
+    # Mean per-atom cosine similarity between predicted and reference forces.
+    # pred, ref: [n_atoms, 3]; returns a value in [-1, 1] (1 = perfect alignment).
+    num = np.sum(pred * ref, axis=-1)
+    den = np.linalg.norm(pred, axis=-1) * np.linalg.norm(ref, axis=-1) + 1e-9
+    return np.mean(num / den).item()
+
+
 def compute_c(delta: np.ndarray, eta: float) -> float:
     return np.mean(np.abs(delta) < eta).item()
 

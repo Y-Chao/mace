@@ -29,6 +29,7 @@ from .checkpoint import CheckpointHandler, CheckpointState
 from .torch_tools import to_numpy
 from .utils import (
     MetricsLogger,
+    compute_cosine_similarity_forces,
     compute_mae,
     compute_q95,
     compute_rel_mae,
@@ -62,11 +63,13 @@ def valid_err_log(
         inintial_phrase = "Initial"
     else:
         inintial_phrase = f"Epoch {epoch}"
+    cos_sim_f = eval_metrics.get("cos_sim_f")
+    cos_sim_str = f", CosSim_F={cos_sim_f:6.4f}" if cos_sim_f is not None else ""
     if log_errors == "PerAtomRMSE":
         error_e = eval_metrics["rmse_e_per_atom"] * 1e3
         error_f = eval_metrics["rmse_f"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A"
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A{cos_sim_str}"
         )
     elif (
         log_errors == "PerAtomRMSEstressvirials"
@@ -76,7 +79,7 @@ def valid_err_log(
         error_f = eval_metrics["rmse_f"] * 1e3
         error_stress = eval_metrics["rmse_stress"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A, RMSE_stress={error_stress:8.2f} meV / A^3",
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A, RMSE_stress={error_stress:8.2f} meV / A^3{cos_sim_str}",
         )
     elif (
         log_errors == "PerAtomRMSEstressvirials"
@@ -86,7 +89,7 @@ def valid_err_log(
         error_f = eval_metrics["rmse_f"] * 1e3
         error_virials = eval_metrics["rmse_virials_per_atom"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A, RMSE_virials_per_atom={error_virials:8.2f} meV",
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A, RMSE_virials_per_atom={error_virials:8.2f} meV{cos_sim_str}",
         )
     elif (
         log_errors == "PerAtomMAEstressvirials"
@@ -96,7 +99,7 @@ def valid_err_log(
         error_f = eval_metrics["mae_f"] * 1e3
         error_stress = eval_metrics["mae_stress"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E_per_atom={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A, MAE_stress={error_stress:8.2f} meV / A^3"
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E_per_atom={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A, MAE_stress={error_stress:8.2f} meV / A^3{cos_sim_str}"
         )
     elif (
         log_errors == "PerAtomMAEstressvirials"
@@ -106,25 +109,25 @@ def valid_err_log(
         error_f = eval_metrics["mae_f"] * 1e3
         error_virials = eval_metrics["mae_virials"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E_per_atom={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A, MAE_virials={error_virials:8.2f} meV"
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E_per_atom={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A, MAE_virials={error_virials:8.2f} meV{cos_sim_str}"
         )
     elif log_errors == "TotalRMSE":
         error_e = eval_metrics["rmse_e"] * 1e3
         error_f = eval_metrics["rmse_f"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A",
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A{cos_sim_str}",
         )
     elif log_errors == "PerAtomMAE":
         error_e = eval_metrics["mae_e_per_atom"] * 1e3
         error_f = eval_metrics["mae_f"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E_per_atom={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A",
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E_per_atom={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A{cos_sim_str}",
         )
     elif log_errors == "TotalMAE":
         error_e = eval_metrics["mae_e"] * 1e3
         error_f = eval_metrics["mae_f"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A",
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, MAE_E={error_e:8.2f} meV, MAE_F={error_f:8.2f} meV / A{cos_sim_str}",
         )
     elif log_errors == "DipoleRMSE":
         error_mu = eval_metrics["rmse_mu_per_atom"] * 1e3
@@ -142,7 +145,7 @@ def valid_err_log(
         error_f = eval_metrics["rmse_f"] * 1e3
         error_mu = eval_metrics["rmse_mu_per_atom"] * 1e3
         logging.info(
-            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A, RMSE_Mu_per_atom={error_mu:8.2f} mDebye",
+            f"{inintial_phrase}: head: {valid_loader_name}, loss={valid_loss:8.8f}, RMSE_E_per_atom={error_e:8.2f} meV, RMSE_F={error_f:8.2f} meV / A, RMSE_Mu_per_atom={error_mu:8.2f} mDebye{cos_sim_str}",
         )
 
 
@@ -597,6 +600,7 @@ class MACELoss(Metric):
         self.add_state("delta_es_per_atom", default=[], dist_reduce_fx="cat")
         self.add_state("Fs_computed", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("fs", default=[], dist_reduce_fx="cat")
+        self.add_state("fps", default=[], dist_reduce_fx="cat")
         self.add_state("delta_fs", default=[], dist_reduce_fx="cat")
         self.add_state(
             "stress_computed", default=torch.tensor(0.0), dist_reduce_fx="sum"
@@ -634,6 +638,7 @@ class MACELoss(Metric):
             )
         if output.get("forces") is not None and batch.forces is not None:
             self.fs.append(batch.forces)
+            self.fps.append(output["forces"])
             self.delta_fs.append(batch.forces - output["forces"])
             self.Fs_computed += filter_nonzero_weight(
                 batch,
@@ -721,12 +726,14 @@ class MACELoss(Metric):
             aux["q95_e"] = compute_q95(delta_es)
         if self.Fs_computed:
             fs = self.convert(self.fs)
+            fps = self.convert(self.fps)
             delta_fs = self.convert(self.delta_fs)
             aux["mae_f"] = compute_mae(delta_fs)
             aux["rel_mae_f"] = compute_rel_mae(delta_fs, fs)
             aux["rmse_f"] = compute_rmse(delta_fs)
             aux["rel_rmse_f"] = compute_rel_rmse(delta_fs, fs)
             aux["q95_f"] = compute_q95(delta_fs)
+            aux["cos_sim_f"] = compute_cosine_similarity_forces(fps, fs)
         if self.stress_computed:
             delta_stress = self.convert(self.delta_stress)
             aux["mae_stress"] = compute_mae(delta_stress)

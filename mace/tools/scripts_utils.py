@@ -698,6 +698,19 @@ def get_loss_fn(
             energy_weight=args.energy_weight,
             forces_weight=args.forces_weight,
         )
+    elif args.loss == "cosine":
+        loss_fn = modules.WeightedEnergyForcesCosineLoss(
+            energy_weight=args.energy_weight,
+            forces_weight=args.forces_weight,
+            cosine_weight=args.cosine_weight,
+        )
+    elif args.loss == "huber_cosine":
+        loss_fn = modules.WeightedHuberEnergyForcesCosineLoss(
+            energy_weight=args.energy_weight,
+            forces_weight=args.forces_weight,
+            cosine_weight=args.cosine_weight,
+            huber_delta=args.huber_delta,
+        )
     elif args.loss == "dipole":
         assert (
             dipole_only is True
@@ -785,6 +798,25 @@ def get_swa(
         )
         logging.info(
             f"Stage Two (after {args.start_swa} epochs) with loss function: {loss_fn_energy}, with energy weight : {args.swa_energy_weight}, forces weight : {args.swa_forces_weight}, stress weight : {args.swa_stress_weight} and learning rate : {args.swa_lr}"
+        )
+    elif args.loss == "cosine":
+        loss_fn_energy = modules.WeightedEnergyForcesCosineLoss(
+            energy_weight=args.swa_energy_weight,
+            forces_weight=args.swa_forces_weight,
+            cosine_weight=args.swa_cosine_weight,
+        )
+        logging.info(
+            f"Stage Two (after {args.start_swa} epochs) with loss function: {loss_fn_energy}, with energy weight : {args.swa_energy_weight}, forces weight : {args.swa_forces_weight}, cosine weight : {args.swa_cosine_weight} and learning rate : {args.swa_lr}"
+        )
+    elif args.loss == "huber_cosine":
+        loss_fn_energy = modules.WeightedHuberEnergyForcesCosineLoss(
+            energy_weight=args.swa_energy_weight,
+            forces_weight=args.swa_forces_weight,
+            cosine_weight=args.swa_cosine_weight,
+            huber_delta=args.huber_delta,
+        )
+        logging.info(
+            f"Stage Two (after {args.start_swa} epochs) with loss function: {loss_fn_energy}, with energy weight : {args.swa_energy_weight}, forces weight : {args.swa_forces_weight}, cosine weight : {args.swa_cosine_weight} and learning rate : {args.swa_lr}"
         )
     else:
         loss_fn_energy = modules.WeightedEnergyForcesLoss(

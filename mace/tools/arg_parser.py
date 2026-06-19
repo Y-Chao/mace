@@ -770,6 +770,8 @@ def build_default_arg_parser() -> argparse.ArgumentParser:
             "universal",
             "energy_forces_dipole",
             "l1l2energyforces",
+            "cosine",
+            "huber_cosine",
         ],
     )
     parser.add_argument(
@@ -782,6 +784,20 @@ def build_default_arg_parser() -> argparse.ArgumentParser:
         type=float,
         default=100.0,
         dest="swa_forces_weight",
+    )
+    parser.add_argument(
+        "--cosine_weight",
+        help="weight of the forces cosine-similarity loss term",
+        type=float,
+        default=1.0,
+    )
+    parser.add_argument(
+        "--swa_cosine_weight",
+        "--stage_two_cosine_weight",
+        help="weight of the forces cosine-similarity loss term after starting Stage Two (previously called swa)",
+        type=float,
+        default=1.0,
+        dest="swa_cosine_weight",
     )
     parser.add_argument(
         "--energy_weight", help="weight of energy loss", type=float, default=1.0
